@@ -1,0 +1,24 @@
+# Secrets / local config
+.env
+*.local
+
+# Runtime data
+.hy3cli/
+history.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Demo artifacts (recorded by the user locally)
+demo/*.cast
+demo/*.gif
+demo/*.mp4

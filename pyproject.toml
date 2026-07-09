@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hy3-cli"
+version = "1.0.0"
+description = "自然语言转 shell 命令的终端助手，由 Hy3 大模型驱动（2026 犀牛鸟 issue #4）"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["hy3", "cli", "shell", "llm", "terminal", "rhinobird2026"]
+
+[project.scripts]
+hy3cli = "hy3cli.__main__:main"
+
+[tool.setuptools]
+packages = ["hy3cli"]
