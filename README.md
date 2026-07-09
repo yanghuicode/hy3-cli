@@ -59,6 +59,11 @@ cp .env.example .env
 
 > 不填 `HY3_API_KEY` 会自动进入 mock 模式，可直接体验交互。
 
+> ⚙️ **关于推理模型**：默认的 `hunyuan-3.0-free` 是推理型模型，会在给出最终 JSON 前
+> 消耗大量 token 进行「思考」。因此必须给足 `HY3_MAX_TOKENS`（默认 4096），否则最终答案会被
+> 截断为空。客户端已内置**重试**（默认 3 次，退避补偿）以应对公网 endpoint 的偶发抖动。
+> 若你的 Hy3 部署走的是非推理模型，可适当调小 `HY3_MAX_TOKENS` 以降低延迟。
+
 ### 2. 运行（两种方式）
 
 ```bash
@@ -92,17 +97,25 @@ hy3cli --mock "查看占用 8080 端口的进程"
 
 > 录制脚本见 `demo/record.sh`，按说明即可产出 ≤2min 的 asciinema 录像 / GIF。
 
-**Demo 1 — 文件检索（低风险，直接执行）**
+**Demo 1 — 文件检索（低风险）**
 ```
 $ hy3cli "找出当前目录下最近7天修改、大于100MB的文件"
-→ Hy3 生成 find 命令 → 低风险 → 确认后列出文件
+→ Hy3 生成命令 → 低风险 → 解释 + 风险标注
+# 真实输出（Windows / PowerShell）：
+$ Get-ChildItem -Path . -Recurse -File | Where-Object {
+    $_.LastWriteTime -ge (Get-Date).AddDays(-7) -and $_.Length -gt 100MB }
 ```
 
 **Demo 2 — 端口排查（中风险，带确认 + 安全提示）**
 ```
 $ hy3cli "查看占用 8080 端口的进程并杀掉"
-→ Hy3 生成 lsof 命令 → 中风险(含 kill) → 提示确认 PID → 执行
+→ Hy3 生成命令 → 中风险(含 Stop-Process -Force) → 提示确认 PID → 执行
+# 真实输出（Windows / PowerShell）：
+$ Get-NetTCPConnection -LocalPort 8080 ... | ForEach-Object { Stop-Process -Id $_ -Force }
 ```
+
+> ✅ **已用真实 Hy3 验证**：上述两条命令及 `chat` 多轮模式，均通过真实 `hunyuan-3.0-free`
+> 模型跑通。完整终端输出见 [`demo/real-session.txt`](./demo/real-session.txt)。
 
 仓库内 `demo/demo_prompts.txt` 给出可直接复用的演示脚本。
 
@@ -112,9 +125,9 @@ $ hy3cli "查看占用 8080 端口的进程并杀掉"
 
 本仓库为「vibe-coded」作品，下列模块由 **CodeBuddy / WorkBuddy（基于 Hy3）** 协助生成或重构：
 
-- `hy3cli/client.py`：Hy3 OpenAI 兼容客户端、JSON 解析与 mock 模式（初版由 CodeBuddy 生成，后人工补了 JSON 兜底解析）。
-- `hy3cli/safety.py`：危险命令规则集（由 WorkBuddy 建议并整理）。
-- `hy3cli/assistant.py`：NL→命令主流程与交互模式（由 CodeBuddy 协助搭建骨架）。
+- `hy3cli/client.py`：Hy3 OpenAI 兼容客户端、JSON 解析与 mock 模式（初版由 CodeBuddy 生成，后由 WorkBuddy 接入真实 `hunyuan-3.0-free` 推理模型——补了 `max_tokens` 预算、`chat_template_kwargs` 关闭思考、空内容回退 `reasoning_content` 提取，以及瞬时网络错误的**重试**）。
+- `hy3cli/safety.py`：危险命令规则集（由 WorkBuddy 建议并整理，本次新增 `taskkill /F`、`Stop-Process -Force` 中风险规则）。
+- `hy3cli/assistant.py`：NL→命令主流程与交互模式（由 CodeBuddy 协助搭建骨架；本次由 WorkBuddy 修复 Windows 执行器——PowerShell 命令改经 `powershell -File` 路由，使模型生成的 PowerShell cmdlet 能在 Windows 上真正执行）。
 - `README.md` 与 `demo/record.sh`：由 WorkBuddy 撰写。
 
 其余配置、测试与调试由作者完成。

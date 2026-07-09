@@ -40,14 +40,24 @@ def get_config() -> dict:
     api_key = os.environ.get("HY3_API_KEY", "")
     mock = os.environ.get("HY3_MOCK", "0") == "1" or not api_key
     return {
+        # Default endpoint/model below are the real RhinoBird 2026 submission
+        # values. Override via .env / environment if you have a different Hy3
+        # deployment.
         "base_url": os.environ.get("HY3_BASE_URL",
-                                   "https://api.hunyuan.cloud.tencent.com/v1").rstrip("/"),
+                                   "http://101.43.51.108:3000/v1").rstrip("/"),
         "api_key": api_key,
-        "model": os.environ.get("HY3_MODEL", "hy3"),
+        "model": os.environ.get("HY3_MODEL", "hunyuan-3.0-free"),
         "mock": mock,
         "os_hint": os.environ.get("HY3_OS", _detect_os()),
         "temperature": float(os.environ.get("HY3_TEMPERATURE", "0.2")),
-        "timeout": int(os.environ.get("HY3_TIMEOUT", "60")),
+        # hunyuan-3.0-free is a reasoning model: it spends a large share of the
+        # token budget "thinking" before emitting the final JSON. A generous
+        # budget is required so the answer is not truncated by max_tokens.
+        "max_tokens": int(os.environ.get("HY3_MAX_TOKENS", "4096")),
+        "timeout": int(os.environ.get("HY3_TIMEOUT", "120")),
+        # The public RhinoBird endpoint can be intermittently flaky; retry
+        # transient network / 5xx errors a few times with backoff.
+        "retries": int(os.environ.get("HY3_RETRIES", "3")),
         "history_file": os.environ.get(
             "HY3_HISTORY", str(Path(os.path.expanduser("~")) / ".hy3cli" / "history.jsonl")
         ),

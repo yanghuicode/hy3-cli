@@ -7,8 +7,10 @@ a built-in mock so the whole flow can be developed and demoed offline.
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
+import socket
 from typing import Optional
 
 SYSTEM_PROMPT = """\
@@ -138,12 +140,15 @@ def _mock_command(prompt: str, os_hint: str) -> dict:
 
 class Hy3Client:
     def __init__(self, base_url: str, api_key: str, model: str,
-                 temperature: float = 0.2, timeout: int = 60, mock: bool = False):
+                 temperature: float = 0.2, timeout: int = 120,
+                 max_tokens: int = 4096, retries: int = 3, mock: bool = False):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.temperature = temperature
         self.timeout = timeout
+        self.max_tokens = max_tokens
+        self.retries = retries
         self.mock = mock
         self.endpoint = f"{self.base_url}/chat/completions"
 
@@ -161,7 +166,12 @@ class Hy3Client:
             "model": self.model,
             "messages": messages,
             "temperature": temperature if temperature is not None else self.temperature,
+            "max_tokens": self.max_tokens,
             "stream": False,
+            # Best-effort: ask reasoning-capable gateways to skip the thinking
+            # stage. Honored by some Hy3 deployments; ignored (but harmless) by
+            # others. A large max_tokens budget is the real safeguard.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         req = urllib.request.Request(
             self.endpoint,
@@ -172,17 +182,47 @@ class Hy3Client:
             },
             method="POST",
         )
+        data = None
+        last_err: Optional[Hy3Error] = None
+        for attempt in range(self.retries):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError as e:
+                # 4xx (bad token, bad request) are permanent — don't retry.
+                if e.code >= 500:
+                    last_err = Hy3Error(f"Hy3 API HTTP {e.code}: {e.read().decode('utf-8', 'ignore')}")
+                    time.sleep(min(2 ** attempt, 8))
+                    continue
+                raise Hy3Error(f"Hy3 API HTTP {e.code}: {e.read().decode('utf-8', 'ignore')}")
+            except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+                # Transient network hiccups (e.g. WinError 10060) — retry.
+                reason = getattr(e, "reason", e)
+                last_err = Hy3Error(f"Hy3 API network error: {reason}")
+                time.sleep(min(2 ** attempt, 8))
+                continue
+        if data is None:
+            assert last_err is not None
+            raise last_err
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            raise Hy3Error(f"Hy3 API HTTP {e.code}: {e.read().decode('utf-8', 'ignore')}")
-        except urllib.error.URLError as e:
-            raise Hy3Error(f"Hy3 API network error: {e.reason}")
-        try:
-            return data["choices"][0]["message"]["content"]
+            msg = data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as e:
             raise Hy3Error(f"Unexpected Hy3 response shape: {e}")
+        # Prefer the final answer in `content`. If the reasoning budget
+        # truncated it to null/empty, try to salvage a JSON object from the
+        # reasoning trace as a last resort.
+        content = msg.get("content")
+        if not content or not content.strip():
+            rc = msg.get("reasoning_content") or ""
+            m = re.search(r"\{.*\}", rc, re.DOTALL)
+            content = m.group(0) if m else None
+        if not content or not content.strip():
+            raise Hy3Error(
+                "Hy3 returned empty content (reasoning budget may be exhausted). "
+                "Try raising HY3_MAX_TOKENS."
+            )
+        return content
 
     # -- high level --------------------------------------------------------
     def natural_language_to_command(self, prompt: str, os_hint: str,

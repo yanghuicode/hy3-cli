@@ -18,6 +18,7 @@ _DANGEROUS_PATTERNS = [
     (r"\b(mv|cp)\s+.*\s+/\b", "移动到根/系统目录，请确认目标路径", "medium"),
     (r"\b(curl|wget)\b.*\|\s*(sudo\s+)?(ba)?sh\b", "下载后直接执行，存在代码注入风险", "high"),
     (r"\b(kill|pkill|killall)\b", "会终止进程，请确认目标 PID/名称", "medium"),
+    (r"\btaskkill\b.*/F\b|\bStop-Process\b.*-Force\b", "会强制终止进程（可能丢失未保存数据），请确认目标", "medium"),
     (r"\bshutdown\b|\breboot\b|\bhalt\b|\bpoweroff\b", "会关闭或重启系统", "high"),
     (r"\bgit\b.*\b(push\s+--force|--force.*push|reset\s+--hard|clean\s+-f)\b",
      "危险的 Git 操作（强推 / 硬重置 / 强制清理），可能丢失提交", "high"),

@@ -69,6 +69,8 @@ def main(argv=None) -> int:
         model=args.model or cfg["model"],
         temperature=cfg["temperature"],
         timeout=cfg["timeout"],
+        max_tokens=cfg["max_tokens"],
+        retries=cfg["retries"],
         mock=mock,
     )
     os_hint = args.os_hint or cfg["os_hint"]
@@ -90,6 +92,7 @@ def main(argv=None) -> int:
     if sub == "exec":
         from .safety import analyze, describe
         from .ui import render_result
+        from .assistant import _run_command
         result = {"command": prompt, "explanation": "用户直接指定的命令。",
                   "risk_level": "low", "caveats": []}
         risk = analyze(prompt)
@@ -100,8 +103,9 @@ def main(argv=None) -> int:
             if not confirm("确认执行？"):
                 print(_c("已取消。", "33"))
                 return 0
-        import subprocess
-        subprocess.run(prompt, shell=True)
+        rc = _run_command(prompt, os_hint)
+        if rc != 0:
+            print(_c(f"↳ 进程退出码: {rc}", "33"))
         return 0
 
     translate(client, prompt, os_hint, cfg["history_file"],

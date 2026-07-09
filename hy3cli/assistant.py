@@ -4,13 +4,43 @@ This module wires together the Hy3 client and the safety analyzer and is the
 single place that decides what gets shown and what (if anything) gets run.
 """
 import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 
 from .client import Hy3Client, Hy3Error
 from .safety import analyze, describe
 from .ui import render_result, confirm, banner, RISK_COLOR, _c, BOLD, RESET
+
+
+def _run_command(cmd: str, os_hint: str) -> int:
+    """Execute a command cross-platform.
+
+    On Windows, Hy3 emits PowerShell-flavored commands (Get-ChildItem,
+    netstat pipelines, etc.). Running those through cmd.exe (the default for
+    subprocess shell=True) fails, so we route them through powershell instead.
+    """
+    if os_hint == "windows":
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".ps1", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(cmd)
+            tmp = f.name
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", tmp],
+                check=False,
+            )
+            return proc.returncode
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    proc = subprocess.run(cmd, shell=True)
+    return proc.returncode
 
 
 def _load_history(path: str) -> list[dict]:
@@ -75,9 +105,9 @@ def translate(client: Hy3Client, prompt: str, os_hint: str,
 
     print(_c("▶ 执行:", BOLD) + " " + cmd)
     try:
-        proc = subprocess.run(cmd, shell=True)
-        if proc.returncode != 0:
-            print(_c(f"↳ 进程退出码: {proc.returncode}", RISK_COLOR["medium"]))
+        rc = _run_command(cmd, os_hint)
+        if rc != 0:
+            print(_c(f"↳ 进程退出码: {rc}", RISK_COLOR["medium"]))
     except KeyboardInterrupt:
         print(_c("\n已中断。", RISK_COLOR["medium"]))
     return result

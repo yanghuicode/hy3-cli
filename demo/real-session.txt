@@ -1,0 +1,62 @@
+# 真实 Hy3 端到端验证记录 (model: hunyuan-3.0-free, endpoint: http://101.43.51.108:3000/v1)
+# 生成时间: 2026-07-09T02:15:24Z
+
+===== DEMO 1: 解释模式 - 查找最近7天修改、大于100MB的文件 =====
+[1m[36m⚡ Hy3-CLI[0m[2m  — natural language → shell, powered by Hy3[0m
+
+[2m┌─ 请求[0m
+[2m│ [0m找出当前目录下最近7天修改、大于100MB的文件
+[2m└─[0m
+
+[1m💡 Hy3 生成的命令[0m
+[32m[1m  $ [0mGet-ChildItem -Path . -Recurse -File | Where-Object { $_.LastWriteTime -ge (Get-Date).AddDays(-7) -and $_.Length -gt 100MB }
+
+[36m说明: [0mUses Get-ChildItem to recursively retrieve files and filters by modification date within the last 7 days and size greater than 100MB.
+[36m目标系统: [0mwindows
+
+[1m风险等级: [0m[32mLOW[0m[2m  低风险：只读或安全的常规操作[0m
+[33m注意: [0m
+[33m  • [0mIncludes subdirectories via -Recurse; remove -Recurse to limit to the immediate current directory
+
+
+===== DEMO 2: 解释模式 - 查看并结束占用8080端口的进程 =====
+[1m[36m⚡ Hy3-CLI[0m[2m  — natural language → shell, powered by Hy3[0m
+
+[2m┌─ 请求[0m
+[2m│ [0m查看占用 8080 端口的进程并杀掉
+[2m└─[0m
+
+[1m💡 Hy3 生成的命令[0m
+[32m[1m  $ [0m$p = Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Select-Object -Unique OwningProcess; if ($p) { $p | Format-Table; $p.OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } else { Write-Host 'No process on port 8080' }
+
+[36m说明: [0mFinds TCP connections on local port 8080, displays the owning process IDs, and forcefully terminates those processes.
+[36m目标系统: [0mwindows
+
+[1m风险等级: [0m[33mMEDIUM[0m[2m  中风险：会改变状态 / 需权限，请确认后再执行[0m
+[31m  • [0m会强制终止进程（可能丢失未保存数据），请确认目标
+[33m注意: [0m
+[33m  • [0mdestructive: kills the process(es)
+[33m  • [0mmay require administrator privileges
+
+
+===== DEMO 3: 交互模式多轮 (chat) - 输入两条后退出 =====
+[1m[36m⚡ Hy3-CLI[0m[2m  — natural language → shell, powered by Hy3[0m
+[1m交互模式：输入自然语言，回车生成命令；输入 exit/quit 退出。[0m
+[1m36
+hy3> [0m
+[2m┌─ 请求[0m
+[2m│ [0mdocker 列出正在运行的容器
+[2m└─[0m
+
+[1m💡 Hy3 生成的命令[0m
+[32m[1m  $ [0mdocker ps
+
+[36m说明: [0mLists all currently running Docker containers using the Docker CLI.
+[36m目标系统: [0mwindows
+
+[1m风险等级: [0m[32mLOW[0m[2m  低风险：只读或安全的常规操作[0m
+[33m注意: [0m
+[33m  • [0mRequires Docker daemon to be running
+
+[1m36
+hy3> [0m
