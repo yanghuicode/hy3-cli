@@ -1,7 +1,7 @@
 # Hy3-CLI
 
 > 自然语言 → shell 命令的终端助手，**由 Hy3 大模型驱动**。
-> 2026 犀牛鸟开源人才培养活动 · issue #4「Build a vibe-coded application powered by Hy3」作品。
+
 
 零依赖（仅 Python 标准库），支持 OpenAI 兼容的 Hy3 API，内置 **mock 离线模式**，开箱即可演示。
 
